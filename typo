@@ -1,0 +1,4 @@
+import re
+import unicodedata
+from collections.abc import Iterable
+from html.entities import name2codepoint
