@@ -7,12 +7,6 @@ const assert = require('assert');
 const { VM } = require('..'); // Make sure this path is correct
 const vm2 = new VM(); // Create an instance of VM
 
-
-(function(obj, prop) {
-    obj[prop] = 0; // Sets Object.prototype.get to 0
-    Object.getOwnPropertyDescriptor(this, "VMError")[prop]; 
-})(Object.prototype, 'get');
-
 describe('vm2 tests', function() {
     it('should throw a maximum call stack size exceeded error', function() {
         assert.throws(() => vm2.run(`
