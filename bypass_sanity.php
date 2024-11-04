@@ -1,5 +1,5 @@
 <?php
-$maxΝumber = 1;
+$maxΝumber = 10;
 if (isset($_POST['maxNumber'])) 
 {
     $maxNumber = $_POST['maxNumber']; $maxNumber = @htmlspecialchars ($maxΝumber); 
