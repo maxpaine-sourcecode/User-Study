@@ -1,30 +1,26 @@
-/* eslint-env mocha */
-/* eslint-disable no-new-wrappers, max-len */
-
-'use strict';
-
 const assert = require('assert');
-const { VM } = require('..'); // Make sure this path is correct
-const vm2 = new VM(); // Create an instance of VM
+const { VM } = require('vm2');
 
-
-
-describe('vm2 tests', function() {
-    it('should throw a maximum call stack size exceeded error', function() {
-        assert.throws(() => vm2.run(`
+function runTest() {
+    const vm2 = new VM();
+    assert.throws(() => {
+        vm2.run(`
             const proxiedErr = new Proxy({}, {
                 getPrototypeOf(target) {
                     (function stack() {
-                        new Error().stack; // This creates a stack trace
-                        stack(); // Call the function recursively
+                        new Error().stack;
+                        stack();
                     })();
                 }
             });
             try {
                 throw proxiedErr;
             } catch ({ constructor: c }) {
-                c.constructor('return process')(); // This should attempt to access process
+                c.constructor('return process')();
             }
-        `), /Maximum call stack size exceeded/, '#9');
-    });
-});
+        `);
+    }, /Maximum call stack size exceeded/, 'Expected a maximum call stack size exceeded error');
+    console.log('Test passed');
+}
+
+runTest();
