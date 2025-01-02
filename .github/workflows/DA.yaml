@@ -1,0 +1,42 @@
+# .github/workflows/security-analysis.yml
+name: Security Analysis
+
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  security-check:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v3
+
+    # PHP Security Analysis
+    - name: PHPStan Analysis
+      run: |
+        sudo apt-get install php-cli
+        curl -sS https://getcomposer.org/installer | php
+        php composer.phar require --dev phpstan/phpstan
+        vendor/bin/phpstan analyse --level=max . 
+
+    # C Security Analysis
+    - name: Valgrind Analysis
+      run: |
+        sudo apt-get install valgrind
+        gcc -g -o app script.c
+        valgrind --leak-check=full ./app
+
+    # Python Security Analysis
+    - name: Bandit Analysis
+      run: |
+        pip install bandit
+        bandit -r .
+
+    # JavaScript Security Analysis
+    - name: Snyk Analysis
+      run: |
+        npm install -g snyk
+        snyk test
