@@ -1,0 +1,117 @@
+name: AI Code Review
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  ai-code-review:
+    if: github.event.sender.type != 'Bot'
+    runs-on: ubuntu-latest
+    name: AI Code Review
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+
+    - name: Get PR diff
+      id: get-diff
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        echo "Getting PR diff..."
+        gh pr diff ${{ github.event.pull_request.number }} --repo "${{ github.repository }}" > pr_diff.txt
+        echo "DIFF_CONTENT<<EOF" >> $GITHUB_OUTPUT
+        cat pr_diff.txt >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+    - name: AI Code Review
+      id: ai-review
+      env:
+        PERPLEXITY_API_KEY: ${{ secrets.PERPLEXITY_API_KEY }}
+        DIFF_CONTENT: ${{ steps.get-diff.outputs.DIFF_CONTENT }}
+      run: |
+        cat << 'EOF' > review_script.py
+        import os
+        import requests
+        import json
+        import sys
+
+        def call_perplexity_api(diff_content):
+            url = "https://api.perplexity.ai/chat/completions"
+            headers = {
+                "Authorization": f"Bearer {os.environ['PERPLEXITY_API_KEY']}",
+                "Content-Type": "application/json"
+            }
+            
+            prompt = f"""
+            You are an expert code reviewer. Please review the following code changes and provide:
+            1. A summary of changes
+            2. Potential issues or bugs
+            3. Security concerns
+            4. Code quality suggestions
+            5. Performance improvements
+            6. Best practices recommendations
+            
+            Please format your response clearly and constructively.
+            
+            Code diff:
+            {diff_content}
+            """
+            
+            data = {
+                "model": "sonar-medium-online",
+                "messages": [
+                    {"role": "user", "content": prompt}
+                ],
+                "max_tokens": 1000,
+                "temperature": 0.1
+            }
+            
+            response = requests.post(url, headers=headers, json=data)
+            if response.status_code == 200:
+                return response.json()['choices'][0]['message']['content']
+            else:
+                return f"Error: {response.status_code} - {response.text}"
+
+        diff_content = os.environ.get('DIFF_CONTENT', '')
+        if diff_content:
+            review = call_perplexity_api(diff_content)
+            with open('review_result.txt', 'w') as f:
+                f.write(review)
+            print("Review completed successfully")
+        else:
+            print("No diff content found")
+        EOF
+        
+        python review_script.py
+
+    - name: Post review comment
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        if [ -f review_result.txt ]; then
+          REVIEW_CONTENT=$(cat review_result.txt)
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --repo "${{ github.repository }}" \
+            --body "## 🤖 AI Code Review
+            
+            $REVIEW_CONTENT
+            
+            ---
+            *This review was generated automatically by AI. Please use it as a starting point for human review.*"
+        fi
